@@ -4,12 +4,13 @@
 
 # prerequisites
 ```python
-  install pyenv
   install virtualenv
   install scrapy
-  install scrapy-splash
-  install requests
-  docker pull scrapinghub/splash1
+  install django
+  install scrapy-splash  # NOT USED
+  install requests # NOT USED
+  docker pull scrapinghub/splash1 # NOT USED
+  database postgresql
 ```
 
 
@@ -18,11 +19,6 @@
   source venv/bin/activate
 ```
 
-# execute the docker container
-```python
-  sudo docker pull scrapinghub/splash
-  sudo docker run -it -p 8050:8050 --rm scrapinghub/splash # Acts as a daemon
-```
 
 # Execute the spider
 ```python
@@ -37,7 +33,6 @@
 import pdb; pdb.set_trace() into the parse method in the spider
 
 
-
 # Utilities for me
 
 # Pretty print output
@@ -46,3 +41,10 @@ pprint.pprint(response.body)
 
 # Get and Filter public_methods
 public_methods = [method for method in dir(HtmlResponse) if not method.startswith('_')]
+
+
+# execute the docker container , NOT USED
+```python
+  sudo docker pull scrapinghub/splash
+  sudo docker run -it -p 8050:8050 --rm scrapinghub/splash # Acts as a daemon
+```
