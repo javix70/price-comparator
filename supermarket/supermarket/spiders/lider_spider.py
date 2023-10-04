@@ -1,14 +1,8 @@
 import scrapy
 import uuid
 import json
-from itertools import islice
 
-
-# Debuggers
-import pprint
-import pdb
-
-from ..items import ProductItem
+from ..items import *
 
 BASE_URL = "https://apps.lider.cl"
 TENANT = "supermercado"
@@ -51,14 +45,10 @@ class LiderSpider(scrapy.Spider):
         data = json.loads(response.text)
         categories = data['categories']
         
-        # for category in categories:
-        #     if not category.get('hidden'):
-        #         for path in self.generate_category_paths(category):
-        #             pdb.set_trace()
-        #             yield self.create_post_request(path)
-        for category in islice((c for c in categories if not c.get('hidden')), 2):
-          for path in islice(self.generate_category_paths(category), 2):
-              yield self.create_post_request(path)
+        for category in categories:
+            if not category.get('hidden'):
+                for path in self.generate_category_paths(category):
+                    yield self.create_post_request(path)
 
     # Creacion de request POST para obtener productos
     def create_post_request(self, category_path, page=1):
@@ -69,11 +59,13 @@ class LiderSpider(scrapy.Spider):
             "hitsPerPage": 100,
             "categories": category_path
         }
+        headers={ 'Content-Type': 'application/json', 'x-channel': 'SOD', 'x-flowid': self.flowid, 'x-sessionid': self.sessionid }
+        complete_headers = {**self.headers, **headers} 
         return scrapy.Request(
             url=f"{BASE_URL}/category",
             method='POST',
             body=json.dumps(payload),
-            headers={'Content-Type': 'application/json', 'x-channel': 'SOD', 'x-flowid': self.flowid, 'x-sessionid': self.sessionid},
+            headers=complete_headers,
             callback=self.parse_post_response,
             meta={'category_path': category_path, 'page': page}
         )
@@ -147,23 +139,41 @@ class LiderSpider(scrapy.Spider):
       #         - deliveryTags: List                            []
       #     - vendorId: str                                     ''
     def parse_post_response(self, response):
-        pdb.set_trace()
         data = json.loads(response.text)
-        pdb.set_trace()
         for product in data['products']:
             item = ProductItem()
+            attributes = AttributesItem()
+            price = PriceItem()
+            nutritional_information = NutritionalInformationItem()
+            product_description = ProductDescriptionItem()
 
-            for field in ['ID', 'brand', 'description', 'gtin13', 'price']:
+            for field in ['sku', 'brand', 'gtin13']:
                 item[field] = product.get(field, None)
             yield item
 
-        pdb.set_trace()
+            for field in ['attributes']:
+                attributes[field] = product.get(field, None)
+            yield attributes
+
+            for field in ['price']:
+                price[field] = product.get(field, None)
+            yield price
+
+            for field in ['nutritionalInformation']:
+                nutritional_information[field] = product.get(field, None)
+            yield nutritional_information
+
+            for field in ['description', 'longDescription']:
+                product_description[field] = product.get(field, None)
+            yield product_description
+
         if data['nbPages'] > 1 and data['page'] < data['nbPages']:
             next_page = data['page'] + 1
             yield self.create_post_request(response.meta['category_path'], page=next_page)
 
     
     ## HELPER METHODS
+    # Generar paths de categorias con sus subcategorias en todos los 3 niveles
     def generate_category_paths(self, category):
         paths = []
         for subcategory in category['categoriesLevel2']:

@@ -5,14 +5,20 @@
 
 import scrapy
 
-
-class SupermarketItem(scrapy.Item):
-    pass
-
-
 class ProductItem(scrapy.Item):
-    ID = scrapy.Field()
-    brand = scrapy.Field()
-    description = scrapy.Field()
-    price = scrapy.Field()
+    sku = scrapy.Field()
     gtin13 = scrapy.Field()
+    brand = scrapy.Field()
+
+class AttributesItem(scrapy.Item):
+    attributes = scrapy.Field()
+
+class PriceItem(scrapy.Item):
+    price = scrapy.Field()
+
+class NutritionalInformationItem(scrapy.Item):
+    nutritionalInformation = scrapy.Field()
+
+class ProductDescriptionItem(scrapy.Item):
+    description = scrapy.Field()
+    longDescription = scrapy.Field()
