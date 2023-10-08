@@ -19,9 +19,14 @@
   source venv/bin/activate
 ```
 
+```python
+  python manage.py makemigrations
+  python manage.py migrate
+```
 
 # Execute the spider
 ```python
+  cd supermarket (from the root project)
   scrapy crawl lider
 ```
 
@@ -30,17 +35,20 @@
    scrapy shell <url>
 
 # Or you can use the pdb library
-import pdb; pdb.set_trace() into the parse method in the spider
+import pdb; pdb.set_trace()
 
 
 # Utilities for me
 
 # Pretty print output
-import pprint
-pprint.pprint(response.body)
+from pprint import pprint
+pprint(response.body)
 
 # Get and Filter public_methods
 public_methods = [method for method in dir(HtmlResponse) if not method.startswith('_')]
+# Function help for get the documentation
+help([])
+help(type([]))
 
 
 # execute the docker container , NOT USED
