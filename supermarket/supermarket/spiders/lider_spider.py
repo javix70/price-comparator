@@ -2,7 +2,7 @@ import scrapy
 import uuid
 import json
 
-from ..items import *
+from ..items.lider_items import *
 
 BASE_URL = "https://apps.lider.cl"
 TENANT = "supermercado"
@@ -44,7 +44,8 @@ class LiderSpider(scrapy.Spider):
     def parse_categories(self, response):
         data = json.loads(response.text)
         categories = data['categories']
-        
+        # self.logger.info(f"Categories: {categories}")
+
         for category in categories:
             if not category.get('hidden'):
                 for path in self.generate_category_paths(category):

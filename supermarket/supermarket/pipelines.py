@@ -6,7 +6,7 @@
 
 # useful for handling different item types with a single interface
 # from itemadapter import ItemAdapter
-from .items import *
+from .items.lider_items import *
 from products.models import *
 import asyncio
 from asgiref.sync import sync_to_async
