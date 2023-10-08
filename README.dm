@@ -1,58 +1,82 @@
-# The propose for this project is to scrapy all supermarket from valdivia city on Chile and comparator de prices.
+# Supermarket Price Comparator for Valdivia, Chile
 
-# The first step is to extract the products for each supermarket, for this we use the scrapy library and the xpath for each supermarket.
+This Python project aims to scrape supermarket data from the city of Valdivia in Chile and compare prices. It's a great starting point for anyone looking to understand data extraction and web scraping using Scrapy and Django.
 
-# prerequisites
+## Project Overview
+
+1. **Objective**: Extract and compare supermarket product prices in Valdivia, Chile.
+2. **Main Tools**: Scrapy (for web scraping) and Django (for backend operations).
+
+## Getting Started
+
+### Prerequisites
+
+Before you start, make sure you have the following dependencies installed:
+
 ```python
-  install virtualenv
-  install scrapy
-  install django
-  install scrapy-splash  # NOT USED
-  install requests # NOT USED
-  docker pull scrapinghub/splash1 # NOT USED
-  database postgresql
+pip install virtualenv scrapy django
 ```
 
+> Note: There are some additional dependencies mentioned (like `scrapy-splash`, `requests`, and docker commands related to `splash`). These are not used currently and can be skipped unless needed for future enhancements.
 
-# active the virtualenv
+### Setting up the Environment
+
+1. **Activate the virtual environment**:
+   
 ```python
-  source venv/bin/activate
+source venv/bin/activate
 ```
 
+2. **Django database setup**:
+
 ```python
-  python manage.py makemigrations
-  python manage.py migrate
+python manage.py makemigrations
+python manage.py migrate
 ```
 
-# Execute the spider
+### Running the Scraper
+
+Navigate to the `supermarket` directory from the root of the project and execute the spider named `lider`:
+
 ```python
-  cd supermarket (from the root project)
-  scrapy crawl lider
+cd supermarket
+scrapy crawl lider
 ```
 
-# for debug
-```python
-   scrapy shell <url>
+### Debugging Tips
 
-# Or you can use the pdb library
+1. **Using Scrapy Shell**:
+   
+```python
+scrapy shell <url>
+```
+
+2. **Using Python Debugger (pdb)**:
+
+Insert the following line of code at the location where you want to set a breakpoint:
+
+```python
 import pdb; pdb.set_trace()
+```
 
+### Utilities
 
-# Utilities for me
-
-# Pretty print output
+- **Pretty-print output**:
+  
+```python
 from pprint import pprint
 pprint(response.body)
+```
 
-# Get and Filter public_methods
+- **List and filter public methods**:
+
+```python
 public_methods = [method for method in dir(HtmlResponse) if not method.startswith('_')]
-# Function help for get the documentation
+```
+
+- **Get documentation for Python functions**:
+
+```python
 help([])
 help(type([]))
-
-
-# execute the docker container , NOT USED
-```python
-  sudo docker pull scrapinghub/splash
-  sudo docker run -it -p 8050:8050 --rm scrapinghub/splash # Acts as a daemon
 ```
