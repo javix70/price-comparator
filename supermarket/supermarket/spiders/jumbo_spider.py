@@ -1,6 +1,8 @@
 
 
+import re
 import scrapy
+from scrapy_splash import SplashRequest
 import uuid
 import json
 from pdb import set_trace as st
@@ -36,125 +38,48 @@ class JumboSpider(scrapy.Spider):
     }
 
     def parse(self, response):
-            scripts = response.xpath('//script/text()').getall()
-            
+        scripts = response.xpath('//script/text()').getall()
+        js_files_with_posible_api_key_url = response.css('script[src*="bundle.js"]::attr(src)').getall()
+
+        for script_url in js_files_with_posible_api_key_url:
+            # no estoy seguro si realmente se requiere splash, me parece que no
+            # Cambiar por Request normal despues
+            yield SplashRequest(url=response.urljoin(script_url),
+                                callback=self.parse_js_response,
+                                args={'wait': 2},
+                                meta={'scripts': scripts})
+
+    def parse_js_response(self, response):
+        api_key_pattern = re.compile(r'catalog\s*:\s*\{key\s*:\s*"apiKey"\s*,\s*value\s*:\s*"([^"]+)"\}')
+        match = api_key_pattern.search(response.text)
+        if match:
+            api_key = match.group(1)
+            self.headers.update({'apiKey': api_key})
+            self.logger.info(f"Found API key: {api_key}")
+
+            scripts = response.meta['scripts']
             for script in scripts:
                 if 'window.__renderData' in script:
                     cleaned_data = script.replace('window.__renderData =', '').strip()
                     if cleaned_data.endswith(';'):
-                        cleaned_data = cleaned_data[:-1]
-
-                    # - active: bool                                          True
-                    # - banner: Dict
-                    #     - active: bool                                      False
-                    #     - end_date: str                                     ''
-                    #     - image_desktop: bool                               False
-                    #     - image_mobile: bool                                False
-                    #     - start_date: str                                   ''
-                    #     - title: str                                        ''
-                    #     - url: str                                          ''
-                    # - items: List
-                    #     - 0: Dict
-                    #         - active: bool                                  True
-                    #         - items: List
-                    #             - 0: Dict
-                    #                 - active: bool                          True
-                    #                 - title: str                            'Bebidas en Lata e Individuales'
-                    #                 - url: str                              '/bebidas-aguas-y-jugos/bebidas-gaseosas/bebidas-en-lata-e-individuales'
-                    #             - 1: Dict
-                    #                 - active: bool                          True
-                    #                 - title: str                            'Bebidas Light o Zero Azúcar'
-                    #                 - url: str                              '/bebidas-aguas-y-jugos/bebidas-gaseosas/bebidas-light-o-zero-azucar'
-                    #             - 2: Dict
-                    #                 - active: bool                          True
-                    #                 - title: str                            'Bebidas Regulares'
-                    #                 - url: str                              '/bebidas-aguas-y-jugos/bebidas-gaseosas/bebidas-regulares'
-                    #             - 3: Dict
-                    #                 - active: bool                          True
-                    #                 - title: str                            'Bebidas Retornables'
-                    #                 - url: str                              '/bebidas-aguas-y-jugos/bebidas-gaseosas/bebidas-retornables'
-                    #         - title: str                                    'Bebidas'
-                    #         - url: str                                      '/bebidas-aguas-y-jugos/bebidas-gaseosas'
-
-                    # Los elementos más importantes en este caso, sería title y url, para poder generar la url de cada categoria
-                    # quizá entrando a cada url de categoría podría obtener un endpoint interesante, como api
-
+                        cleaned_data= cleaned_data[:-1] 
                     json_data = json.loads(json.loads(cleaned_data))
-                    # dict_keys(['slug', 'acf', 'updateTime'])
-                    
                     acf = json_data['menu']['acf']
-                    # dict_keys(['items', 'fixed_categories', 'offers', 'campaigns'])
-                    #  en donde fixed_categories son la categoria principal, y items son las subcategorias, offer y campaingm, ignorar por ahora.
+                    items = acf['items']
+                    for item in items[:2]:
+                            url = f"{BASE_URL}/v4/products{item['url']}"
+                            yield self.create_post_request(url)
+        else:
+            self.logger.warning(f"API key not found! for {response.url}")
 
-                    items = json_data['menu']['acf']['items']
-                    for item in items:
-                         url = f"{BASE_URL}/v4/products{item['url']}"
-                         yield self.create_post_request(url)
-                         
-                    # https://sm-web-api.ecomm.cencosud.com/catalog/api/v4/products/bebidas-aguas-y-jugos/bebidas-gaseosas/bebidas-en-lata-e-individuales?page=1&sc=11 # Producto
-                    # armar la url a partir de la categoria
-                    # BASE_URL/v4/products/{category}/{sub_category}/{sub_sub_category}?page={page}&sc=11
 
-                    break
-                    
-                    # - recordsFiltered: int                                 (valor no proporcionado)
-                    # - operator: str                                        'and'
-                    # - products: List
-                    #     - 0: Dict
-                    #         - productId: str                               '44040'
-                    #         - productName: str                            'Pack 6 un. Bebida Coca Cola Sin Azúcar Lata 350 cc'
-                    #         - brand: str                                  'Coca-Cola'
-                    #         - SkuData: List
-                    #             - 0: str                                  (valor JSON serializado proporcionado)
-                    #         - productReference: str                       '713795-PAK'
-                    #         - categoriesIds: List
-                    #             - 0: str                                  '/189/190/893/'
-                    #         - categories: List
-                    #             - 0: str                                  '/Bebidas, Aguas y Jugos/Bebidas Gaseosas/Bebidas en Lata e Individuales/'
-                    #         - productClusters: Dict
-                    #             - 164: str                                'flag libre de azucar añadida'
-                    #             - 749: str                                '749 FDM Junio + ciclo 3'
-                    #             - 1002: str                               'Cuando Calienta el Sol'
-                    #             - 1022: str                               'Google Shopping'
-                    #         - Evento: List
-                    #             - 0: str                                  'Cyber'
-                    #         - linkText: str                               'pack-bebida-coca-cola-zero-6-unid-350-cc-c-u'
-                    #         - items: List
-                    #             - 0: Dict
-                    #                 - itemId: str                         '43762'
-                    #                 - name: str                           'Pack 6 un. Bebida Coca Cola Sin Azúcar Lata 350 cc'
-                    #                 - unitMultiplier: int                 1
-                    #                 - measurementUnit: str                'un'
-                    #                 - images: List
-                    #                     - 0: Dict
-                    #                         - imageUrl: str               'https://jumbo.vtexassets.com/arquivos/ids/698794/Pack-6-un-Bebida-Coca-Cola-Sin-Azucar-Lata-350-cc.jpg?v=638271126548670000'
-                    #                         - imageTag: str               ''
-                    #                 - referenceId: List
-                    #                     - 0: Dict
-                    #                         - Key: str                    'RefId'
-                    #                         - Value: str                  '713795-PAK'
-                    #                 - sellers: List
-                    #                     - 0: Dict
-                    #                         - sellerId: str               '1'
-                    #                         - sellerName: str             'Jumbo Chile'
-                    #                         - commertialOffer: Dict
-                    #                             - Price: int              4290
-                    #                             - ListPrice: int          5990
-                    #                             - PriceWithoutDiscount: int 5990
-                    #                             - AvailableQuantity: int  10000
-                    #         - Filtros: List
-                    #             - 0: str                                  'Producto Nuevo'
-                    #             - 1: str                                  'Evento'
-                    #         - Producto Nuevo: List
-                    #             - 0: str                                  'Producto antiguo'
-
-                    # https://sm-web-api.ecomm.cencosud.com/catalog/api/v4/products/bebidas-aguas-y-jugos/bebidas-gaseosas/bebidas-en-lata-e-individuales?page=1&sc=11 # Producto\
-                
+        
     def create_post_request(self, url, page=1):
         payload = {
             "page": page,
-            "sc": 11,
+            "sc": 11
         }
+        
         return scrapy.Request(
             url = url,
             method = 'POST',
@@ -166,6 +91,48 @@ class JumboSpider(scrapy.Spider):
     
 
     def parse_post_response(self, response):
-         perejil = response
-         st()
-         perejil = 'perejil'
+        data = json.loads(response.text)
+        n_pages = data['recordsFiltered'] // 40 + 1
+            
+        {'Cortes y Partes': ['Carne Molida Especial'],
+         'Estado': ['Refrigerado'],
+         'Filtros': ['Cortes y Partes', 'Formato', 'Estado', 'Producto Nuevo'],
+         'Formato': ['Listo para Cocinar'],
+         'Producto Nuevo': ['Producto antiguo'],
+         'SkuData': ['{"11491":{"ref_id":"1670575","cart_limit":"12","allow_notes":true,"allow_substitute":true,"measurement_unit":"un","unit_multiplier":1,"promotions":[],"measurement_unit_un":"kg","unit_multiplier_un":0.5,"measurement_unit_selector":false,"release_data":{"date_release":"06-12-2016 '
+                     '00:00","date_release_end":"05-01-2017 '
+                     '00:00","is_new":false},"promotionData":{"promotionName":"","promotionShortDescription":"","promotionDescription":"","promotionFeature":""}}}'],
+         'brand': 'Cuisine & Co',
+         'categories': ['/Carnicería/Vacuno/Carne Molida/'],
+         'categoriesIds': ['/75/76/80/'],
+         'items': [{'images': [{'imageTag': '',
+                                 'imageUrl': 'https://jumbo.vtexassets.com/arquivos/ids/652286/Carne-molida-5--grasa-500-g.jpg?v=638183044845570000'}],
+                     'itemId': '11491',
+                     'measurementUnit': 'un',
+                     'name': 'Carne molida 5% grasa 500 g',
+                     'referenceId': [{'Key': 'RefId', 'Value': '1670575'}],
+                     'sellers': [{'commertialOffer': {'AvailableQuantity': 10000,
+                                                     'ListPrice': 5690,
+                                                     'Price': 5690,
+                                                     'PriceWithoutDiscount': 5690},
+                                 'sellerId': '1',
+                                 'sellerName': 'Jumbo Chile'}],
+                     'unitMultiplier': 1}],
+         'linkText': 'carne-molida-5-materia-grasa-500g',
+         'productClusters': {'10181': '10181 MiCupon_CarnesVacuno',
+                             '1022': 'Google Shopping',
+                             '10316': '10316 Especial semana Mexicana',
+                             '1059': 'All Products',
+                             '10620': '10620 MiCupon_Carnes de vacuno',
+                             '1238': '1238 Scraper Carnes',
+                             '400': '400 APP Shortcut Carnes',
+                             '8008': 'Shortcut - Carnes molidas 8008',
+                             '8722': '8722 Shortcut Carnes',
+                             '8880': '8880 Top 100 pedidos jumbo.cl'},
+         'productId': '11232',
+         'productName': 'Carne molida 5% grasa 500 g',
+         'productReference': '1670575'}
+
+        if n_pages > 1:
+            for page in range(1, n_pages + 1):
+                yield self.create_post_request(response.url, page=page)
