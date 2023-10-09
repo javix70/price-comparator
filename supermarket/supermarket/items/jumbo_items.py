@@ -5,5 +5,8 @@
 
 import scrapy
 
-class CategoryItem(scrapy.Item):
-    category = scrapy.Field()
+class ProductItem(scrapy.Item):
+    sku = scrapy.Field()
+    brand = scrapy.Field()
+    name = scrapy.Field()
+    items = scrapy.Field()
