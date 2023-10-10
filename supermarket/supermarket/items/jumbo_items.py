@@ -6,7 +6,7 @@
 import scrapy
 
 class ProductItem(scrapy.Item):
-    sku = scrapy.Field()
     brand = scrapy.Field()
     name = scrapy.Field()
     items = scrapy.Field()
+    provider = scrapy.Field()

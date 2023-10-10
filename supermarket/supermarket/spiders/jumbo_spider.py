@@ -59,13 +59,12 @@ class JumboSpider(scrapy.Spider):
             self.logger.warning(f"API key not found! for {response.url}")
 
 
-        
     def create_post_request(self, url, page=1):
         payload = {
             "page": page,
             "sc": 11
         }
-        
+
         return scrapy.Request(
             url = url,
             method = 'POST',
@@ -81,12 +80,13 @@ class JumboSpider(scrapy.Spider):
         products = data['products']
         new_product = ProductItem()
 
-        key_convert = {'productReference': 'sku', 'brand': 'brand', 'items': 'items', 'productName': 'name'}
+        key_convert = {'brand': 'brand', 'items': 'items', 'productName': 'name'}
         for product in products:
             for key, value in product.items():
                 if key in key_convert:
                     new_product[key_convert[key]] = value
-
+            new_product['provider'] = self.name
+            st()
             yield new_product
 
         if n_pages > 1:

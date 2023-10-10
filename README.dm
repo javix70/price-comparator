@@ -17,8 +17,6 @@ Before you start, make sure you have the following dependencies installed:
 pip install virtualenv scrapy django
 ```
 
-> Note: There are some additional dependencies mentioned (like `scrapy-splash`, `requests`, and docker commands related to `splash`). These are not used currently and can be skipped unless needed for future enhancements.
-
 ### Setting up the Environment
 
 1. **Activate the virtual environment**:
@@ -28,7 +26,16 @@ source venv/bin/activate
 ```
 
 2. **Django database setup**:
+NOTE: _This project used PosgreSQL as the database._
 
+create a database and add the following extensions:
+
+```bash
+psql
+CREATE EXTENSION pg_trgm;
+```
+
+and then run the following commands:
 ```python
 python manage.py makemigrations
 python manage.py migrate
@@ -38,9 +45,11 @@ python manage.py migrate
 
 Navigate to the `supermarket` directory from the root of the project and execute the spider named `lider`:
 
+eventually, you can run the all spider
 ```python
 cd supermarket
 scrapy crawl lider
+scrapy crawl jumbo
 ```
 
 ### Debugging Tips
