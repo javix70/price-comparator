@@ -33,7 +33,7 @@ class ProductPipeline:
             product = Product(
                 name=item['name'],
                 brand=item['brand'],
-                gtin13=item['items'][0]['ean']
+                gtin13=item['gtin13']
             )
             product.save()
         
@@ -43,8 +43,8 @@ class ProductPipeline:
         product_price = Price(
             provider = provider,
             product = product,
-            price = item['items'][0]['commertialOffer']['Price'],
-            extra_data_price = item['items'][0]
+            price = item['price']['Price'],
+            extra_data_price = item['price']
         )
         product_price.save()
 
@@ -77,6 +77,6 @@ class ProductPipeline:
             product = Product.objects.filter(gtin13=item['gtin13'])
             await self._lider_save_item(item, provider, product)
         if isinstance(item, JumboProductItem):
-            product = Product.objects.filter(gtin13=item['items'][0]['ean'])
+            product = Product.objects.filter(gtin13=item['gtin13'])
             await self._jumbo_save_item(item, provider, product)
         return item

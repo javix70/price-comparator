@@ -2,7 +2,6 @@
 
 import re
 import scrapy
-import requests
 import json
 from pdb import set_trace as st
 from ..items.jumbo_items import ProductItem
@@ -52,7 +51,7 @@ class JumboSpider(scrapy.Spider):
                     json_data = json.loads(json.loads(cleaned_data))
                     acf = json_data['menu']['acf']
                     items = acf['items']
-                    for item in items[:2]: # TODO: remover el slice
+                    for item in items:
                             url = f"{BASE_URL}/v4/products{item['url']}"
                             yield self.create_post_request(url)
         else:
@@ -75,20 +74,42 @@ class JumboSpider(scrapy.Spider):
         )
 
     def parse_post_response(self, response):
-        data = json.loads(response.text)
+        data = response.json()
         n_pages = data['recordsFiltered'] // 40 + 1
-        products = data['products']
-        new_product = ProductItem()
+        catalog_products = data['products']
 
-        key_convert = {'brand': 'brand', 'items': 'items', 'productName': 'name'}
-        for product in products:
-            for key, value in product.items():
-                if key in key_convert:
-                    new_product[key_convert[key]] = value
-            new_product['provider'] = self.name
-            st()
-            yield new_product
+        for product in catalog_products:
+            yield self.create_post_product_request(product['linkText'])
 
         if n_pages > 1:
             for page in range(1, n_pages + 1):
                 yield self.create_post_request(response.url, page=page)
+
+
+
+    def create_post_product_request(self, url):
+        url = f"{BASE_URL}/v1/product/{url}"
+        payload = {
+            "sc": 11
+        }
+        return scrapy.Request(
+            url = url,
+            method = 'GET',
+            body = json.dumps(payload),
+            headers = self.headers,
+            callback = self.parse_product
+        )
+
+    def parse_product(self, response):
+        product = response.json()[0]
+        new_product = ProductItem()
+
+        # TODOL tengo que analizar los productos que tienen más de un items, al parecer en este caso
+        # dado que no son pack porque vienen directamente del catalogo, solo tendrán 1 solo nivel de anidacion
+        new_product['provider'] = 'jumbo'
+        new_product['price'] = product['items'][0]['sellers'][0]['commertialOffer']
+        new_product['brand'] = product['brand']
+        new_product['name'] = product['productName']
+        new_product['gtin13'] = product['items'][0]['ean']
+
+        yield new_product
