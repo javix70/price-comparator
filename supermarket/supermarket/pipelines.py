@@ -9,26 +9,13 @@ from asgiref.sync import sync_to_async
 SIMILARITY_THRESHOLD = 0.7
 
 class ProductPipeline:
-    @sync_to_async
-    def _lider_save_item(self, item, provider, product: None):
-        if not product:
-            product = Product(
-                name=item['displayName'],
-                brand=item['brand'],
-                gtin13=item['gtin13']
-            )
-            product.save()
-        
-        product_price = Price(
-            provider = provider,
-            product = product,
-            price = item['price']['BasePriceReference'],
-            extra_data_price = item['price']
-        )
-        product_price.save()
+    def __init__(self):
+        self.product_cache = {}
+        self.provider_cache = {}
+        self.price_key = { LiderProductItem: 'BasePriceReference', JumboProductItem: 'Price'}
 
     @sync_to_async
-    def _jumbo_save_item(self, item, provider, product: None):
+    def _save_item(self, item, provider, product: None):
         if not product:
             product = Product(
                 name=item['name'],
@@ -37,46 +24,47 @@ class ProductPipeline:
             )
             product.save()
         
-        # [0].items[0].ean Ean es el GTIN13 que está en el lider.
-        # TODO: Tener ojo que pueden ser más de un item, por lo que hay que iterar
-        # Por modos de prueba, se dejará para después el analisis
         product_price = Price(
-            provider = provider,
-            product = product,
-            price = item['price']['Price'],
-            extra_data_price = item['price']
+            price=item['price'][self.price_key[item.__class__]],
+            provider=provider,
+            product=product,
+            extra_data_price=item['price']
         )
         product_price.save()
 
     async def process_item(self, item, spider):
-        provider = await sync_to_async(Provider.objects.filter, thread_sensitive=True)(name=item['provider'])
-        exists = await sync_to_async(provider.exists, thread_sensitive=True)()
+        provider = await self.get_or_create_provider(item['provider'])
+        product = await self.get_or_load_product(item)
 
-        if not exists:
-            provider = Provider(name=item['provider'])
-            await sync_to_async(provider.save, thread_sensitive=True)()
+        await self._save_item(item, provider, product)
 
-        # TODO: en caso de que no se pueda obtener el GTIN13, se debe buscar por nombre
-        # products = Product.objects.annotate(
-        #     similarity=TrigramSimilarity('name', item['name'])
-        #     ).filter(
-        #         brand=item['brand'],
-        #         similarity__gt=SIMILARITY_THRESHOLD
-        #     ).order_by('-similarity')
+    async def get_or_create_provider(self, key):
+        if key in self.provider_cache:
+            return self.provider_cache[key], False
 
-        # create_product = True
-        # if products.count() > 0:
-        #     create_product = False
-        #     product = products.first()
-        #     print(f"El producto {item['name']} ya existe")
-            
-        # if products.count() > 1:
-        #     print(f"El producto {item['name']} está duplicado")
+        provider, _ = await sync_to_async(Provider.objects.get_or_create, thread_sensitive=True)(name=key)
+        
+        self.provider_cache[key] = provider
+        return provider
 
-        if isinstance(item, LiderProductItem):
-            product = Product.objects.filter(gtin13=item['gtin13'])
-            await self._lider_save_item(item, provider, product)
-        if isinstance(item, JumboProductItem):
-            product = Product.objects.filter(gtin13=item['gtin13'])
-            await self._jumbo_save_item(item, provider, product)
-        return item
+    async def get_or_load_product(self, item):
+        if item['gtin13'] in self.product_cache:
+            return self.product_cache[item['gtin13']], False 
+
+        product = await sync_to_async(Product.objects.get, thread_sensitive=True)(gtin13=item['gtin13'])
+
+        if not products.exists():
+            products = Product.objects.annotate(
+                similarity=TrigramSimilarity('name', item['name'])
+            ).filter(
+                brand=item['brand'],
+                similarity__gt=SIMILARITY_THRESHOLD
+            ).order_by('-similarity')
+
+            if products.count() > 1:
+                product = products.first()
+            else:
+                product = None
+        
+        self.product_cache[item['gtin13']] = product
+        return product

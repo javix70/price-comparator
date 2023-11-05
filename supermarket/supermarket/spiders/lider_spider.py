@@ -1,22 +1,16 @@
 import scrapy
 import uuid
 import json
+import random
 
-from ..items.lider_items import *
-
-BASE_URL = "https://apps.lider.cl"
-TENANT = "supermercado"
-BFF = "bff"
-BASE_URL = f"{BASE_URL}/{TENANT}/{BFF}"
+from ..items.lider_items import ProductItem
+from ..constants import USER_AGENTS, LIDER_URL
 
 class LiderSpider(scrapy.Spider):
     name = 'lider'
-    base_url = f"{BASE_URL}/categories"
-    flowid = str(uuid.uuid4())
-    sessionid = str(uuid.uuid4())
+    base_url = f"{LIDER_URL}/categories"
     
     headers = {
-        'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         'Accept': 'application/json, text/plain, */*',
         'tenant': 'supermercado',
     }
@@ -25,47 +19,56 @@ class LiderSpider(scrapy.Spider):
         yield scrapy.Request(url=self.base_url, headers=self.headers, callback=self.parse_categories)
 
     def parse_categories(self, response):
-        data = json.loads(response.text)
-        categories = data['categories']
+        categories = self._extract_categories_from_response(response)
+        visible_categories = [cat for cat in categories if not cat.get('hidden')]
+        
+        paths = [path for category in visible_categories for path in self.generate_category_paths(category)]
+        for path in paths:
+            yield self.get_iformation_product(path)
 
-        for category in categories:
-            if not category.get('hidden'):
-                for path in self.generate_category_paths(category):
-                    yield self.create_post_request(path)
+    def _extract_categories_from_response(self, response):
+        data = response.json()
+        return data['categories']
 
-    def create_post_request(self, category_path, page=1):
+    def get_iformation_product(self, category_path, page=1):
         payload = {
-            "page": page,
-            "facets": [],
-            "sortBy": "",
-            "hitsPerPage": 100,
-            "categories": category_path
+            'page': page,
+            'facets': [],
+            'sortBy': '',
+            'hitsPerPage': 100,
+            'categories': category_path
         }
-        headers={ 'Content-Type': 'application/json', 'x-channel': 'SOD', 'x-flowid': self.flowid, 'x-sessionid': self.sessionid }
-        complete_headers = {**self.headers, **headers} 
+        headers = { 'Content-Type': 'application/json',
+                    'User-Agent': random.choice(USER_AGENTS),
+                    'x-channel': 'SOD', 'x-flowid': str(uuid.uuid4()),
+                    'x-sessionid': str(uuid.uuid4()) }
+        complete_headers = { **self.headers, **headers }
+    
         return scrapy.Request(
-            url=f"{BASE_URL}/category",
+            url=f"{LIDER_URL}/category",
             method='POST',
             body=json.dumps(payload),
             headers=complete_headers,
-            callback=self.parse_post_response,
+            callback=self.parse_product,
             meta={'category_path': category_path, 'page': page}
         )
 
-    def parse_post_response(self, response):
-        data = json.loads(response.text)
+    def parse_product(self, response):
+        data = response.json()
         for product in data['products']:
             item = ProductItem()
 
-            for field in ['brand', 'price', 'displayName', 'gtin13']:
-                item[field] = product.get(field, None)
+            item['name'] = product['displayName']
+            item['brand'] = product['brand']
+            item['price'] = product['price']
+            item['gtin13'] = product['gtin13']
+            item['provider'] =self.name
 
-            item['provider'] = self.name
             yield item
 
         if data['nbPages'] > 1 and data['page'] < data['nbPages']:
             next_page = data['page'] + 1
-            yield self.create_post_request(response.meta['category_path'], page=next_page)
+            yield self.get_iformation_product(response.meta['category_path'], page=next_page)
 
     
     ## HELPER METHODS only used in this spider
