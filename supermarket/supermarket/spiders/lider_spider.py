@@ -13,6 +13,7 @@ class LiderSpider(scrapy.Spider):
     headers = {
         'Accept': 'application/json, text/plain, */*',
         'tenant': 'supermercado',
+        'User-Agent': random.choice(USER_AGENTS),
     }
 
     def start_requests(self):
