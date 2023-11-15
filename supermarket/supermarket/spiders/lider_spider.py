@@ -2,6 +2,7 @@ import scrapy
 import uuid
 import json
 import random
+import yaml
 
 from ..items.lider_items import ProductItem
 from ..constants import USER_AGENTS, LIDER_URL
@@ -9,21 +10,27 @@ from ..constants import USER_AGENTS, LIDER_URL
 class LiderSpider(scrapy.Spider):
     name = 'lider'
     base_url = f"{LIDER_URL}/categories"
-    
     headers = {
         'Accept': 'application/json, text/plain, */*',
         'tenant': 'supermercado',
         'User-Agent': random.choice(USER_AGENTS),
     }
+    file_filter_categories = None
+
+    def __init__(self):
+        with open('supermarket/ingore_categories.yml', 'r') as file:
+            self.file_filter_categories = yaml.safe_load(file)
 
     def start_requests(self):
         yield scrapy.Request(url=self.base_url, headers=self.headers, callback=self.parse_categories)
 
     def parse_categories(self, response):
         categories = self._extract_categories_from_response(response)
+
         visible_categories = [cat for cat in categories if not cat.get('hidden')]
-        
-        paths = [path for category in visible_categories for path in self.generate_category_paths(category)]
+        filtered_categories = [cat for cat in visible_categories if cat['label'] not in self.file_filter_categories['lider']['categorylvl1']]
+        paths = [path for category in filtered_categories for path in self.generate_category_paths(category)]
+
         for path in paths:
             yield self.get_iformation_product(path)
 
@@ -76,7 +83,16 @@ class LiderSpider(scrapy.Spider):
     def generate_category_paths(self, category):
         paths = []
         for subcategory in category['categoriesLevel2']:
+            if self.is_excluded(subcategory['label']):
+                continue
             for sub_subcategory in subcategory['categoriesLevel3']:
+                if self.is_excluded(sub_subcategory['label']):
+                    continue
                 path = f"{category['label']}/{subcategory['label']}/{sub_subcategory['label']}"
                 paths.append(path)
         return paths
+    
+
+    # the intention is show only product related with food
+    def is_excluded(self, label):
+        return any(keyword.lower() in label.lower() for keyword in self.file_filter_categories['keywords'])

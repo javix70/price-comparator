@@ -1,0 +1,49 @@
+
+keywords:
+  - papeles
+  - mascota
+  - limpieza
+  - aseo
+  - menaje
+  - pisos
+  - baño
+  - organización
+  - deco
+  - silla
+  - mesa
+  - mueble
+  - cama
+  - cuna
+  - seguridad
+  - juego
+  - manualidad
+  - vehículo
+  - accesorio
+  - coleccion
+  - construcc
+  - lanzadores
+  - vestuario
+  - jugueteria
+  - actividad
+  - perfume
+  - ropa
+
+
+lider:
+  categorylvl1:
+    - Deco Navidad
+    - Limpieza y Aseo
+    - Hogar
+    - Perfumería y Salud
+    - Librería y Cumpleaños
+    - Mascotas
+    - Tecno y Electro
+    - Ferretería
+    - Automóvil 
+    - Vestuario
+    - Parrillas y Jardín
+    - Deporte y Aire Libre
+
+jumbo:
+  categorylvl1:
+    - some
